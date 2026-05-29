@@ -9,7 +9,7 @@ The scripts will:
 - Download the latest miner before switching pools.
 - Stop the old pool `screen` session only after the new miner is downloaded.
 - Run the miner in a detached `screen` session so it keeps running after SSH disconnects.
-- Keep the startup command alive by following the same filtered miner summary shown in `screen`, which helps cloud order/startup platforms avoid treating the job as finished immediately.
+- Optionally keep the startup command alive by following the same filtered miner summary shown in `screen`.
 - Prevent duplicate miner sessions for the same pool.
 
 ## Files
@@ -130,17 +130,18 @@ Detach without stopping the miner:
 Ctrl+A then D
 ```
 
-If you launched the script from a cloud order/startup command, it will also keep printing the filtered miner summary in the foreground. This is intentional. It prevents platforms that watch the main command from marking the order as finished right after the background `screen` session starts.
+By default, the script exits after starting the background `screen` session. The miner keeps running in `screen`.
 
-To leave that foreground log view manually, press:
+If your cloud order/startup platform requires the startup command to stay alive, enable the foreground filtered summary explicitly:
 
-```text
-Ctrl+C
+```bash
+export KEEP_ALIVE=1
+curl -fsSL https://raw.githubusercontent.com/lwx25799/alpha-prl/main/start-alpha-auto.sh -o /tmp/start-alpha-auto.sh && bash /tmp/start-alpha-auto.sh
 ```
 
-The miner keeps running in `screen`.
+To leave that foreground summary manually, press `Ctrl+C`. The miner keeps running in `screen`.
 
-If you want the old behavior where the script exits immediately after starting the background miner:
+If your platform shows `^C` instead of exiting, it is not sending an interrupt to the script. Close the terminal or start the script without `KEEP_ALIVE=1`.
 
 ```bash
 export KEEP_ALIVE=0

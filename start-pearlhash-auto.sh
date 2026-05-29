@@ -10,7 +10,7 @@ LOG_FILE="${MINER_DIR}/pearl-miner.log"
 WALLET="${WALLET:-prl1p3vrzmwfn5m9u85z6amfgt8chhclc396wgrnrev4hz29ra3klqd0ql3nj7p}"
 WORKER="${WORKER:-$(hostname)-p}"
 POOL_ENDPOINT="${POOL_ENDPOINT:-auto}"
-KEEP_ALIVE="${KEEP_ALIVE:-1}"
+KEEP_ALIVE="${KEEP_ALIVE:-0}"
 
 ENDPOINTS=(
   "84.32.220.219:9000"
