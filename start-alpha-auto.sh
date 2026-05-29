@@ -9,6 +9,7 @@ MINER_URL="${MINER_URL:-https://pearl.alphapool.tech/downloads/alpha-miner}"
 WALLET="${WALLET:-prl1p3vrzmwfn5m9u85z6amfgt8chhclc396wgrnrev4hz29ra3klqd0ql3nj7p}"
 WORKER="${WORKER:-$(hostname)-alpha}"
 DIFFICULTY="${DIFFICULTY:-}"
+POOL_ENDPOINT="${POOL_ENDPOINT:-auto}"
 
 ENDPOINTS=(
   "us1.alphapool.tech:5566"
@@ -62,9 +63,16 @@ test_endpoint() {
   local host="${endpoint%:*}"
   local port="${endpoint##*:}"
   local t
+  local curl_cmd
 
-  t="$(curl -sS --connect-timeout 3 --max-time 4 \
-    -o /dev/null -w "%{time_connect}" "telnet://${host}:${port}" 2>/dev/null || true)"
+  curl_cmd=(curl -4 -sS --connect-timeout 2 --max-time 3 \
+    -o /dev/null -w "%{time_connect}" "telnet://${host}:${port}")
+
+  if command -v timeout >/dev/null 2>&1; then
+    t="$(timeout 5s "${curl_cmd[@]}" 2>/dev/null || true)"
+  else
+    t="$("${curl_cmd[@]}" 2>/dev/null || true)"
+  fi
 
   case "$t" in
     ""|0|0.000000) return 1 ;;
@@ -73,31 +81,38 @@ test_endpoint() {
   awk "BEGIN { printf \"%d\", $t * 1000 }"
 }
 
-echo "[*] Testing AlphaPool endpoints..."
+if [ "$POOL_ENDPOINT" = "auto" ]; then
+  echo "[*] Testing AlphaPool endpoints..."
 
-BEST_ENDPOINT=""
-BEST_LATENCY=999999
+  BEST_ENDPOINT=""
+  BEST_LATENCY=999999
 
-for endpoint in "${ENDPOINTS[@]}"; do
-  if latency="$(test_endpoint "$endpoint")"; then
-    echo "    [OK]   $endpoint ${latency}ms"
-    if [ "$latency" -lt "$BEST_LATENCY" ]; then
-      BEST_LATENCY="$latency"
-      BEST_ENDPOINT="$endpoint"
+  for endpoint in "${ENDPOINTS[@]}"; do
+    printf "    [..]   %s ... " "$endpoint"
+    if latency="$(test_endpoint "$endpoint")"; then
+      echo "OK ${latency}ms"
+      if [ "$latency" -lt "$BEST_LATENCY" ]; then
+        BEST_LATENCY="$latency"
+        BEST_ENDPOINT="$endpoint"
+      fi
+    else
+      echo "FAIL"
     fi
-  else
-    echo "    [FAIL] $endpoint timeout"
-  fi
-done
+  done
 
-if [ -z "$BEST_ENDPOINT" ]; then
-  echo "[!] No AlphaPool endpoint available."
-  exit 1
+  if [ -z "$BEST_ENDPOINT" ]; then
+    echo "[!] No AlphaPool endpoint available."
+    exit 1
+  fi
+
+  POOL_ENDPOINT="$BEST_ENDPOINT"
+  echo "[+] Best endpoint: ${POOL_ENDPOINT} ${BEST_LATENCY}ms"
+else
+  echo "[*] Using AlphaPool endpoint: ${POOL_ENDPOINT}"
 fi
 
-POOL_URL="stratum+tcp://${BEST_ENDPOINT}"
+POOL_URL="stratum+tcp://${POOL_ENDPOINT}"
 
-echo "[+] Best endpoint: ${BEST_ENDPOINT} ${BEST_LATENCY}ms"
 echo "[+] Pool URL: ${POOL_URL}"
 
 mkdir -p "$MINER_DIR"
@@ -129,7 +144,13 @@ screen -dmS "$SESSION" bash -lc "
     2>&1 | tee alpha-miner.log | awk '
       {
         line = tolower(\$0)
-        if (line ~ /(hashrate|hash rate|[kmgtpe]?h\/s|effective|equiv|equivalent|pool.*(hash|eff|equiv)|error|fail|warn|reject|invalid|disconnect|connected)/) {
+        if (line ~ /(accept|accepted)/) {
+          accepted += 1
+          if (accepted == 1 || accepted % 20 == 0) {
+            print \"[*] Accepted shares: \" accepted
+            fflush()
+          }
+        } else if (line ~ /(hashrate|hash rate|[kmgtpe]?h\/s|effective|equiv|equivalent|pool.*(hash|eff|equiv)|error|fail|warn|reject|rejected|stale|invalid|disconnect|connected|difficulty)/) {
           print
           fflush()
         }

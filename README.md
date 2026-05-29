@@ -49,13 +49,29 @@ export DIFFICULTY="524288"
 curl -fsSL https://raw.githubusercontent.com/lwx25799/alpha-prl/main/start-alpha-auto.sh -o /tmp/start-alpha-auto.sh && bash /tmp/start-alpha-auto.sh
 ```
 
+## Optional Endpoint Selection
+
+To choose a different endpoint:
+
+```bash
+export POOL_ENDPOINT="sg1.alphapool.tech:5566"
+curl -fsSL https://raw.githubusercontent.com/lwx25799/alpha-prl/main/start-alpha-auto.sh -o /tmp/start-alpha-auto.sh && bash /tmp/start-alpha-auto.sh
+```
+
+By default, the script tests all endpoints and chooses the fastest reachable one. To make that explicit:
+
+```bash
+export POOL_ENDPOINT="auto"
+curl -fsSL https://raw.githubusercontent.com/lwx25799/alpha-prl/main/start-alpha-auto.sh -o /tmp/start-alpha-auto.sh && bash /tmp/start-alpha-auto.sh
+```
+
 ## View Live Miner Output
 
 ```bash
 screen -r prl-alpha
 ```
 
-The screen view is filtered to show hashrate, pool-side/effective hashrate, connection status, and errors.
+The screen view is filtered to show hashrate, pool-side/effective hashrate, connection status, reject/stale/error lines, and occasional accepted-share counts.
 
 Detach without stopping the miner:
 
@@ -81,4 +97,4 @@ This file keeps the complete raw miner output.
 
 - The miner requires a Linux x86_64 server with a supported NVIDIA GPU and working NVIDIA driver.
 - AlphaPool PPLNS uses port `5566`.
-- The script tests `us1`, `us2`, `eu1`, `eu2`, `ru1`, and `sg1`, then uses the fastest reachable endpoint.
+- By default, the script tests `us1`, `us2`, `eu1`, `eu2`, `ru1`, and `sg1`, then uses the fastest reachable endpoint.
