@@ -79,7 +79,15 @@ export POOL_ENDPOINT="sg1.alphapool.tech:5566"
 curl -fsSL https://raw.githubusercontent.com/lwx25799/alpha-prl/main/start-alpha-auto.sh -o /tmp/start-alpha-auto.sh && bash /tmp/start-alpha-auto.sh
 ```
 
-By default, AlphaPool tests `us1`, `us2`, `eu1`, `eu2`, `ru1`, and `sg1`, then uses the fastest reachable endpoint.
+By default, AlphaPool tests `us1`, `us2`, `eu1`, `eu2`, `ru1`, and `sg1` three times each, then uses the endpoint with the best median TCP connect time.
+
+To change the precision:
+
+```bash
+export ENDPOINT_TESTS="5"
+export ENDPOINT_TIMEOUT="3"
+curl -fsSL https://raw.githubusercontent.com/lwx25799/alpha-prl/main/start-alpha-auto.sh -o /tmp/start-alpha-auto.sh && bash /tmp/start-alpha-auto.sh
+```
 
 ## Pearlhash Options
 

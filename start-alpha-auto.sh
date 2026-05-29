@@ -10,6 +10,8 @@ WALLET="${WALLET:-prl1p3vrzmwfn5m9u85z6amfgt8chhclc396wgrnrev4hz29ra3klqd0ql3nj7
 WORKER="${WORKER:-$(hostname)-alpha}"
 DIFFICULTY="${DIFFICULTY:-}"
 POOL_ENDPOINT="${POOL_ENDPOINT:-auto}"
+ENDPOINT_TIMEOUT="${ENDPOINT_TIMEOUT:-3}"
+ENDPOINT_TESTS="${ENDPOINT_TESTS:-3}"
 
 ENDPOINTS=(
   "us1.alphapool.tech:5566"
@@ -40,6 +42,18 @@ install_deps() {
   fi
 }
 
+now_ms() {
+  local ts
+
+  ts="$(date +%s%3N 2>/dev/null || true)"
+  if [[ "$ts" =~ ^[0-9]+$ ]]; then
+    echo "$ts"
+    return
+  fi
+
+  echo "$(date +%s)000"
+}
+
 if ! command -v screen >/dev/null 2>&1 || ! command -v curl >/dev/null 2>&1; then
   echo "[*] Installing dependencies..."
   install_deps
@@ -56,23 +70,42 @@ test_endpoint() {
   local endpoint="$1"
   local host="${endpoint%:*}"
   local port="${endpoint##*:}"
-  local t
-  local curl_cmd
+  local start
+  local end
 
-  curl_cmd=(curl -4 -sS --connect-timeout 2 --max-time 3 \
-    -o /dev/null -w "%{time_connect}" "telnet://${host}:${port}")
+  start="$(now_ms)"
 
   if command -v timeout >/dev/null 2>&1; then
-    t="$(timeout 5s "${curl_cmd[@]}" 2>/dev/null || true)"
+    timeout "${ENDPOINT_TIMEOUT}s" bash -c "</dev/tcp/$host/$port" 2>/dev/null || return 1
   else
-    t="$("${curl_cmd[@]}" 2>/dev/null || true)"
+    bash -c "</dev/tcp/$host/$port" 2>/dev/null || return 1
   fi
 
-  case "$t" in
-    ""|0|0.000000) return 1 ;;
-  esac
+  end="$(now_ms)"
+  echo $((end - start))
+}
 
-  awk "BEGIN { printf \"%d\", $t * 1000 }"
+test_endpoint_precise() {
+  local endpoint="$1"
+  local samples=()
+  local latency
+  local sorted
+  local median
+  local i
+
+  for ((i = 1; i <= ENDPOINT_TESTS; i++)); do
+    if latency="$(test_endpoint "$endpoint")"; then
+      samples+=("$latency")
+    fi
+  done
+
+  if [ "${#samples[@]}" -eq 0 ]; then
+    return 1
+  fi
+
+  sorted="$(printf "%s\n" "${samples[@]}" | sort -n)"
+  median="$(printf "%s\n" "$sorted" | sed -n "$(((${#samples[@]} + 1) / 2))p")"
+  printf "%s %s" "$median" "$(printf "%s" "$sorted" | tr '\n' ' ')"
 }
 
 if [ "$POOL_ENDPOINT" = "auto" ]; then
@@ -83,8 +116,10 @@ if [ "$POOL_ENDPOINT" = "auto" ]; then
 
   for endpoint in "${ENDPOINTS[@]}"; do
     printf "    [..]   %s ... " "$endpoint"
-    if latency="$(test_endpoint "$endpoint")"; then
-      echo "OK ${latency}ms"
+    if result="$(test_endpoint_precise "$endpoint")"; then
+      latency="${result%% *}"
+      samples="${result#* }"
+      echo "OK ${latency}ms (samples: ${samples})"
       if [ "$latency" -lt "$BEST_LATENCY" ]; then
         BEST_LATENCY="$latency"
         BEST_ENDPOINT="$endpoint"
