@@ -72,6 +72,28 @@ test_endpoint() {
   awk "BEGIN { printf \"%d\", $t * 1000 }"
 }
 
+filter_pearl_log() {
+  awk '
+    {
+      line = tolower($0)
+      if (line ~ /(accept|accepted|component=share submitted|share submitted|submitted)/) {
+        accepted += 1
+        if (accepted == 1 || accepted % 20 == 0) {
+          print "[*] Accepted shares: " accepted
+          fflush()
+        }
+      } else if (line ~ /(hashrate|hash rate|[kmgtpe]?h\/s)/) {
+        gsub(/^[0-9TZ:.-]+[ ]+/, "", $0)
+        print "[*] " $0
+        fflush()
+      } else if (line ~ /(error|fail|warn|reject|rejected|stale|invalid|disconnect)/) {
+        print
+        fflush()
+      }
+    }
+  '
+}
+
 case "$POOL_ENDPOINT" in
   eu-us|eu|us)
     POOL_ENDPOINT="84.32.220.219:9000"
@@ -128,6 +150,9 @@ fi
 
 screen -dmS "$SESSION" bash -lc "
   set -e
+
+  $(declare -f filter_pearl_log)
+
   cd '$MINER_DIR'
 
   echo '[*] Starting PRL miner on Pearlhash...'
@@ -140,25 +165,7 @@ screen -dmS "$SESSION" bash -lc "
     --host '$POOL_ENDPOINT' \
     --user '$WALLET' \
     --worker '$WORKER' \
-    2>&1 | tee pearl-miner.log | awk '
-      {
-        line = tolower(\$0)
-        if (line ~ /(accept|accepted|component=share submitted|share submitted|submitted)/) {
-          accepted += 1
-          if (accepted == 1 || accepted % 20 == 0) {
-            print \"[*] Accepted shares: \" accepted
-            fflush()
-          }
-        } else if (line ~ /(hashrate|hash rate|[kmgtpe]?h\/s)/) {
-          gsub(/^[0-9TZ:.-]+[ ]+/, \"\", \$0)
-          print \"[*] \" \$0
-          fflush()
-        } else if (line ~ /(error|fail|warn|reject|rejected|stale|invalid|disconnect)/) {
-          print
-          fflush()
-        }
-      }
-    ' || true
+    2>&1 | tee pearl-miner.log | filter_pearl_log || true
 
   echo ''
   echo '[!] Miner exited. Check the error above.'
@@ -182,7 +189,7 @@ echo "    Worker: ${WORKER}"
 
 if [ "$KEEP_ALIVE" = "1" ]; then
   echo ""
-  echo "[*] Keeping startup command alive by following the miner log."
+  echo "[*] Keeping startup command alive by following a filtered miner summary."
   echo "    Press Ctrl+C to leave this view; the miner keeps running in screen."
-  tail -n 80 -F "$LOG_FILE"
+  tail -n 80 -F "$LOG_FILE" | filter_pearl_log
 fi

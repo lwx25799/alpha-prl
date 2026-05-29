@@ -9,7 +9,7 @@ The scripts will:
 - Download the latest miner before switching pools.
 - Stop the old pool `screen` session only after the new miner is downloaded.
 - Run the miner in a detached `screen` session so it keeps running after SSH disconnects.
-- Keep the startup command alive by following the miner log, which helps cloud order/startup platforms avoid treating the job as finished immediately.
+- Keep the startup command alive by following the same filtered miner summary shown in `screen`, which helps cloud order/startup platforms avoid treating the job as finished immediately.
 - Prevent duplicate miner sessions for the same pool.
 
 ## Files
@@ -130,7 +130,7 @@ Detach without stopping the miner:
 Ctrl+A then D
 ```
 
-If you launched the script from a cloud order/startup command, it will also keep printing the miner log in the foreground. This is intentional. It prevents platforms that watch the main command from marking the order as finished right after the background `screen` session starts.
+If you launched the script from a cloud order/startup command, it will also keep printing the filtered miner summary in the foreground. This is intentional. It prevents platforms that watch the main command from marking the order as finished right after the background `screen` session starts.
 
 To leave that foreground log view manually, press:
 

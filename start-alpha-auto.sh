@@ -110,6 +110,38 @@ test_endpoint_precise() {
   printf "%s %s" "$median" "$(printf "%s" "$sorted" | tr '\n' ' ')"
 }
 
+filter_alpha_log() {
+  awk '
+    {
+      line = tolower($0)
+      if (line ~ /(accept|accepted|component=share submitted|share submitted|submitted)/) {
+        accepted += 1
+        if (accepted == 1 || accepted % 20 == 0) {
+          print "[*] Accepted shares: " accepted
+          fflush()
+        }
+      } else if (line ~ /component=pool connected/) {
+        host = port = ""
+        if (match($0, /host=[^ ]+/)) host = substr($0, RSTART + 5, RLENGTH - 5)
+        if (match($0, /port=[0-9]+/)) port = substr($0, RSTART + 5, RLENGTH - 5)
+        print "[*] Pool connected: " host ":" port
+        fflush()
+      } else if (line ~ /component=miner status/) {
+        hash = equiv = attempts = hits = ""
+        if (match($0, /attempts=[0-9]+/)) attempts = substr($0, RSTART + 9, RLENGTH - 9)
+        if (match($0, /hits=[0-9]+/)) hits = substr($0, RSTART + 5, RLENGTH - 5)
+        if (match($0, /hashrate_th_s=[0-9.]+/)) hash = substr($0, RSTART + 14, RLENGTH - 14)
+        if (match($0, /share_equiv_th_s=[0-9.]+/)) equiv = substr($0, RSTART + 17, RLENGTH - 17)
+        printf "[*] Hashrate: local=%s TH/s pool_equiv=%s TH/s attempts=%s hits=%s\n", hash, equiv, attempts, hits
+        fflush()
+      } else if (line ~ /(error|fail|warn|reject|rejected|stale|invalid|disconnect)/) {
+        print
+        fflush()
+      }
+    }
+  '
+}
+
 if [ "$POOL_ENDPOINT" = "auto" ]; then
   echo "[*] Testing AlphaPool endpoints..."
 
@@ -166,6 +198,9 @@ fi
 
 screen -dmS "$SESSION" bash -lc "
   set -e
+
+  $(declare -f filter_alpha_log)
+
   cd '$MINER_DIR'
 
   echo '[*] Starting PRL miner on AlphaPool...'
@@ -179,35 +214,7 @@ screen -dmS "$SESSION" bash -lc "
     --address '$WALLET' \
     --worker '$WORKER' \
     $PASSWORD_ARGS \
-    2>&1 | tee alpha-miner.log | awk '
-      {
-        line = tolower(\$0)
-        if (line ~ /(accept|accepted|component=share submitted|share submitted|submitted)/) {
-          accepted += 1
-          if (accepted == 1 || accepted % 20 == 0) {
-            print \"[*] Accepted shares: \" accepted
-            fflush()
-          }
-        } else if (line ~ /component=pool connected/) {
-          host = port = \"\"
-          if (match(\$0, /host=[^ ]+/)) host = substr(\$0, RSTART + 5, RLENGTH - 5)
-          if (match(\$0, /port=[0-9]+/)) port = substr(\$0, RSTART + 5, RLENGTH - 5)
-          print \"[*] Pool connected: \" host \":\" port
-          fflush()
-        } else if (line ~ /component=miner status/) {
-          hash = equiv = attempts = hits = \"\"
-          if (match(\$0, /attempts=[0-9]+/)) attempts = substr(\$0, RSTART + 9, RLENGTH - 9)
-          if (match(\$0, /hits=[0-9]+/)) hits = substr(\$0, RSTART + 5, RLENGTH - 5)
-          if (match(\$0, /hashrate_th_s=[0-9.]+/)) hash = substr(\$0, RSTART + 14, RLENGTH - 14)
-          if (match(\$0, /share_equiv_th_s=[0-9.]+/)) equiv = substr(\$0, RSTART + 17, RLENGTH - 17)
-          printf \"[*] Hashrate: local=%s TH/s pool_equiv=%s TH/s attempts=%s hits=%s\\n\", hash, equiv, attempts, hits
-          fflush()
-        } else if (line ~ /(error|fail|warn|reject|rejected|stale|invalid|disconnect)/) {
-          print
-          fflush()
-        }
-      }
-    ' || true
+    2>&1 | tee alpha-miner.log | filter_alpha_log || true
 
   echo ''
   echo '[!] Miner exited. Check the error above.'
@@ -231,7 +238,7 @@ echo "    Worker: ${WORKER}"
 
 if [ "$KEEP_ALIVE" = "1" ]; then
   echo ""
-  echo "[*] Keeping startup command alive by following the miner log."
+  echo "[*] Keeping startup command alive by following a filtered miner summary."
   echo "    Press Ctrl+C to leave this view; the miner keeps running in screen."
-  tail -n 80 -F "$LOG_FILE"
+  tail -n 80 -F "$LOG_FILE" | filter_alpha_log
 fi
