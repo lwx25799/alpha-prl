@@ -1,77 +1,115 @@
-# AlphaPool PRL One-Command Miner
+# PRL One-Command Miner Scripts
 
-This folder contains a one-command startup script for mining Pearl (PRL) on AlphaPool.
+This folder contains one-command startup scripts for mining Pearl (PRL) on AlphaPool and Pearlhash.
 
-The script will:
+The scripts will:
 
 - Install `screen` and `curl` when missing.
-- Stop the old P-pool `screen` session named `prl` if it is running.
-- Test all AlphaPool endpoints and choose the fastest reachable node.
-- Download the latest `alpha-miner` every time it starts.
+- Test pool endpoints and choose a reachable node when supported.
+- Download the latest miner before switching pools.
+- Stop the old pool `screen` session only after the new miner is downloaded.
 - Run the miner in a detached `screen` session so it keeps running after SSH disconnects.
-- Prevent duplicate AlphaPool miner sessions.
+- Prevent duplicate miner sessions for the same pool.
 
 ## Files
 
-- `start-alpha-auto.sh` - main startup script.
+- `start-alpha-auto.sh` - start AlphaPool and stop the old Pearlhash session named `prl` if it is running.
+- `start-pearlhash-auto.sh` - start Pearlhash and stop the old AlphaPool session named `prl-alpha` if it is running.
 
-## GitHub Raw URL
+## GitHub Raw URLs
 
 ```bash
 https://raw.githubusercontent.com/lwx25799/alpha-prl/main/start-alpha-auto.sh
+https://raw.githubusercontent.com/lwx25799/alpha-prl/main/start-pearlhash-auto.sh
 ```
 
-## One-Command Start
-
-On a new Linux mining server, run:
+## Start AlphaPool
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/lwx25799/alpha-prl/main/start-alpha-auto.sh -o /tmp/start-alpha-auto.sh && bash /tmp/start-alpha-auto.sh
 ```
 
+Default screen session: `prl-alpha`
+
+## Start Pearlhash
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/lwx25799/alpha-prl/main/start-pearlhash-auto.sh -o /tmp/start-pearlhash-auto.sh && bash /tmp/start-pearlhash-auto.sh
+```
+
+Default screen session: `prl`
+
+## Switching Behavior
+
+When switching pools, the target script first downloads the miner and prepares the launch command. After that it stops the old pool session, then starts the new pool session.
+
+This avoids running two miners at the same time. There may be a short mining gap while the old process stops and the new one starts.
+
 ## Use A Different Wallet
 
-The script has a default wallet inside it. To override it without editing the file:
+Both scripts have a default wallet inside them. To override it without editing the file:
 
 ```bash
 export WALLET="your_prl_wallet_address"
 curl -fsSL https://raw.githubusercontent.com/lwx25799/alpha-prl/main/start-alpha-auto.sh -o /tmp/start-alpha-auto.sh && bash /tmp/start-alpha-auto.sh
 ```
 
-## Optional Static Difficulty
+Use the Pearlhash command instead if you are starting Pearlhash.
 
-Leave this empty unless you know you need it.
+## Optional Worker Name
 
-Example:
+```bash
+export WORKER="rig-01"
+curl -fsSL https://raw.githubusercontent.com/lwx25799/alpha-prl/main/start-alpha-auto.sh -o /tmp/start-alpha-auto.sh && bash /tmp/start-alpha-auto.sh
+```
+
+## AlphaPool Options
+
+Optional static difficulty:
 
 ```bash
 export DIFFICULTY="524288"
 curl -fsSL https://raw.githubusercontent.com/lwx25799/alpha-prl/main/start-alpha-auto.sh -o /tmp/start-alpha-auto.sh && bash /tmp/start-alpha-auto.sh
 ```
 
-## Optional Endpoint Selection
-
-To choose a different endpoint:
+Optional endpoint selection:
 
 ```bash
 export POOL_ENDPOINT="sg1.alphapool.tech:5566"
 curl -fsSL https://raw.githubusercontent.com/lwx25799/alpha-prl/main/start-alpha-auto.sh -o /tmp/start-alpha-auto.sh && bash /tmp/start-alpha-auto.sh
 ```
 
-By default, the script tests all endpoints and chooses the fastest reachable one. To make that explicit:
+By default, AlphaPool tests `us1`, `us2`, `eu1`, `eu2`, `ru1`, and `sg1`, then uses the fastest reachable endpoint.
+
+## Pearlhash Options
+
+Pearlhash defaults to automatic endpoint selection between:
+
+- `84.32.220.219:9000` - EU / US
+- `129.226.55.135:9000` - Asia
+
+You can force a region:
 
 ```bash
-export POOL_ENDPOINT="auto"
-curl -fsSL https://raw.githubusercontent.com/lwx25799/alpha-prl/main/start-alpha-auto.sh -o /tmp/start-alpha-auto.sh && bash /tmp/start-alpha-auto.sh
+export POOL_ENDPOINT="asia"
+curl -fsSL https://raw.githubusercontent.com/lwx25799/alpha-prl/main/start-pearlhash-auto.sh -o /tmp/start-pearlhash-auto.sh && bash /tmp/start-pearlhash-auto.sh
 ```
 
+Accepted aliases are `eu-us`, `eu`, `us`, `asia`, `cn`, and `china`.
+
 ## View Live Miner Output
+
+AlphaPool:
 
 ```bash
 screen -r prl-alpha
 ```
 
-The screen view is filtered to show hashrate, pool-side/effective hashrate, connection status, reject/stale/error lines, and occasional accepted-share counts.
+Pearlhash:
+
+```bash
+screen -r prl
+```
 
 Detach without stopping the miner:
 
@@ -81,20 +119,34 @@ Ctrl+A then D
 
 ## Stop Mining
 
+AlphaPool:
+
 ```bash
 screen -S prl-alpha -X quit
 ```
 
-## View Log
+Pearlhash:
+
+```bash
+screen -S prl -X quit
+```
+
+## View Logs
+
+AlphaPool:
 
 ```bash
 tail -f ~/alpha-miner/alpha-miner.log
 ```
 
-This file keeps the complete raw miner output.
+Pearlhash:
+
+```bash
+tail -f ~/prl-miner/pearl-miner.log
+```
 
 ## Notes
 
 - The miner requires a Linux x86_64 server with a supported NVIDIA GPU and working NVIDIA driver.
 - AlphaPool PPLNS uses port `5566`.
-- By default, the script tests `us1`, `us2`, `eu1`, `eu2`, `ru1`, and `sg1`, then uses the fastest reachable endpoint.
+- Pearlhash uses port `9000`.

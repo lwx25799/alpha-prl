@@ -1,23 +1,18 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-SESSION="${SESSION:-prl-alpha}"
-OLD_SESSION="${OLD_SESSION:-prl}"
-MINER_DIR="${MINER_DIR:-$HOME/alpha-miner}"
-MINER_URL="${MINER_URL:-https://pearl.alphapool.tech/downloads/alpha-miner}"
+SESSION="${SESSION:-prl}"
+OLD_SESSION="${OLD_SESSION:-prl-alpha}"
+MINER_DIR="${MINER_DIR:-$HOME/prl-miner}"
+MINER_URL="${MINER_URL:-https://pearlhash.xyz/downloads/pearl-miner-v8}"
 
 WALLET="${WALLET:-prl1p3vrzmwfn5m9u85z6amfgt8chhclc396wgrnrev4hz29ra3klqd0ql3nj7p}"
-WORKER="${WORKER:-$(hostname)-alpha}"
-DIFFICULTY="${DIFFICULTY:-}"
+WORKER="${WORKER:-$(hostname)-p}"
 POOL_ENDPOINT="${POOL_ENDPOINT:-auto}"
 
 ENDPOINTS=(
-  "us1.alphapool.tech:5566"
-  "us2.alphapool.tech:5566"
-  "eu1.alphapool.tech:5566"
-  "eu2.alphapool.tech:5566"
-  "ru1.alphapool.tech:5566"
-  "sg1.alphapool.tech:5566"
+  "84.32.220.219:9000"
+  "129.226.55.135:9000"
 )
 
 if [ "$(id -u)" -eq 0 ]; then SUDO=""; else SUDO="sudo"; fi
@@ -46,7 +41,7 @@ if ! command -v screen >/dev/null 2>&1 || ! command -v curl >/dev/null 2>&1; the
 fi
 
 if screen -list | grep -q "[.]${SESSION}[[:space:]]"; then
-  echo "[!] AlphaPool miner already running."
+  echo "[!] Pearlhash miner already running."
   echo "    Attach: screen -r ${SESSION}"
   echo "    Stop:   screen -S ${SESSION} -X quit"
   exit 0
@@ -75,8 +70,17 @@ test_endpoint() {
   awk "BEGIN { printf \"%d\", $t * 1000 }"
 }
 
+case "$POOL_ENDPOINT" in
+  eu-us|eu|us)
+    POOL_ENDPOINT="84.32.220.219:9000"
+    ;;
+  asia|cn|china)
+    POOL_ENDPOINT="129.226.55.135:9000"
+    ;;
+esac
+
 if [ "$POOL_ENDPOINT" = "auto" ]; then
-  echo "[*] Testing AlphaPool endpoints..."
+  echo "[*] Testing Pearlhash endpoints..."
 
   BEST_ENDPOINT=""
   BEST_LATENCY=999999
@@ -95,33 +99,26 @@ if [ "$POOL_ENDPOINT" = "auto" ]; then
   done
 
   if [ -z "$BEST_ENDPOINT" ]; then
-    echo "[!] No AlphaPool endpoint available."
+    echo "[!] No Pearlhash endpoint available."
     exit 1
   fi
 
   POOL_ENDPOINT="$BEST_ENDPOINT"
   echo "[+] Best endpoint: ${POOL_ENDPOINT} ${BEST_LATENCY}ms"
 else
-  echo "[*] Using AlphaPool endpoint: ${POOL_ENDPOINT}"
+  echo "[*] Using Pearlhash endpoint: ${POOL_ENDPOINT}"
 fi
 
-POOL_URL="stratum+tcp://${POOL_ENDPOINT}"
-
-echo "[+] Pool URL: ${POOL_URL}"
+echo "[+] Pool host: ${POOL_ENDPOINT}"
 
 mkdir -p "$MINER_DIR"
 
-PASSWORD_ARGS=""
-if [ -n "$DIFFICULTY" ]; then
-  PASSWORD_ARGS="--password 'x;d=${DIFFICULTY}'"
-fi
+echo "[*] Downloading latest pearl-miner..."
+curl -fL --retry 3 "$MINER_URL" -o "${MINER_DIR}/pearl-miner"
+chmod +x "${MINER_DIR}/pearl-miner"
 
-echo "[*] Downloading latest alpha-miner..."
-curl -fL --retry 3 "$MINER_URL" -o "${MINER_DIR}/alpha-miner"
-chmod +x "${MINER_DIR}/alpha-miner"
-
-if screen -list | grep -q "[.]${OLD_SESSION}[[:space:]]"; then
-  echo "[*] Stopping old P-pool session: ${OLD_SESSION}"
+if [ -n "$OLD_SESSION" ] && screen -list | grep -q "[.]${OLD_SESSION}[[:space:]]"; then
+  echo "[*] Stopping old AlphaPool session: ${OLD_SESSION}"
   screen -S "${OLD_SESSION}" -X quit || true
   sleep 2
 fi
@@ -130,18 +127,17 @@ screen -dmS "$SESSION" bash -lc "
   set -e
   cd '$MINER_DIR'
 
-  echo '[*] Starting PRL miner on AlphaPool...'
-  echo '[*] Pool:   $POOL_URL'
+  echo '[*] Starting PRL miner on Pearlhash...'
+  echo '[*] Host:   $POOL_ENDPOINT'
   echo '[*] Wallet: $WALLET'
   echo '[*] Worker: $WORKER'
-  echo '[*] Screen output is filtered. Full log: alpha-miner.log'
+  echo '[*] Screen output is filtered. Full log: pearl-miner.log'
 
-  ./alpha-miner \
-    --pool '$POOL_URL' \
-    --address '$WALLET' \
+  ./pearl-miner \
+    --host '$POOL_ENDPOINT' \
+    --user '$WALLET' \
     --worker '$WORKER' \
-    $PASSWORD_ARGS \
-    2>&1 | tee alpha-miner.log | awk '
+    2>&1 | tee pearl-miner.log | awk '
       {
         line = tolower(\$0)
         if (line ~ /(accept|accepted)/) {
@@ -150,7 +146,7 @@ screen -dmS "$SESSION" bash -lc "
             print \"[*] Accepted shares: \" accepted
             fflush()
           }
-        } else if (line ~ /(hashrate|hash rate|[kmgtpe]?h\/s|effective|equiv|equivalent|pool.*(hash|eff|equiv)|error|fail|warn|reject|rejected|stale|invalid|disconnect|connected|difficulty)/) {
+        } else if (line ~ /(hashrate|hash rate|[kmgtpe]?h\/s|share|job|block|error|fail|warn|reject|rejected|stale|invalid|disconnect|connected|difficulty)/) {
           print
           fflush()
         }
@@ -163,16 +159,16 @@ screen -dmS "$SESSION" bash -lc "
 
 sleep 3
 if ! screen -list | grep -q "[.]${SESSION}[[:space:]]"; then
-  echo "[!] AlphaPool miner failed to stay running."
+  echo "[!] Pearlhash miner failed to stay running."
   echo "    Old session was already stopped before launch."
-  echo "    Log: tail -f ${MINER_DIR}/alpha-miner.log"
+  echo "    Log: tail -f ${MINER_DIR}/pearl-miner.log"
   exit 1
 fi
 
-echo "[+] Started AlphaPool PRL miner."
+echo "[+] Started Pearlhash PRL miner."
 echo "    Screen: screen -r ${SESSION}"
 echo "    Detach: Ctrl+A then D"
 echo "    Stop:   screen -S ${SESSION} -X quit"
-echo "    Log:    tail -f ${MINER_DIR}/alpha-miner.log"
-echo "    Pool:   ${POOL_URL}"
+echo "    Log:    tail -f ${MINER_DIR}/pearl-miner.log"
+echo "    Host:   ${POOL_ENDPOINT}"
 echo "    Worker: ${WORKER}"
