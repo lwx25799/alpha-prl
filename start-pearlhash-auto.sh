@@ -5,10 +5,12 @@ SESSION="${SESSION:-prl}"
 OLD_SESSION="${OLD_SESSION:-prl-alpha}"
 MINER_DIR="${MINER_DIR:-$HOME/prl-miner}"
 MINER_URL="${MINER_URL:-https://pearlhash.xyz/downloads/pearl-miner-v8}"
+LOG_FILE="${MINER_DIR}/pearl-miner.log"
 
 WALLET="${WALLET:-prl1p3vrzmwfn5m9u85z6amfgt8chhclc396wgrnrev4hz29ra3klqd0ql3nj7p}"
 WORKER="${WORKER:-$(hostname)-p}"
 POOL_ENDPOINT="${POOL_ENDPOINT:-auto}"
+KEEP_ALIVE="${KEEP_ALIVE:-1}"
 
 ENDPOINTS=(
   "84.32.220.219:9000"
@@ -112,6 +114,7 @@ fi
 echo "[+] Pool host: ${POOL_ENDPOINT}"
 
 mkdir -p "$MINER_DIR"
+touch "$LOG_FILE"
 
 echo "[*] Downloading latest pearl-miner..."
 curl -fL --retry 3 "$MINER_URL" -o "${MINER_DIR}/pearl-miner"
@@ -176,3 +179,10 @@ echo "    Stop:   screen -S ${SESSION} -X quit"
 echo "    Log:    tail -f ${MINER_DIR}/pearl-miner.log"
 echo "    Host:   ${POOL_ENDPOINT}"
 echo "    Worker: ${WORKER}"
+
+if [ "$KEEP_ALIVE" = "1" ]; then
+  echo ""
+  echo "[*] Keeping startup command alive by following the miner log."
+  echo "    Press Ctrl+C to leave this view; the miner keeps running in screen."
+  tail -n 80 -F "$LOG_FILE"
+fi

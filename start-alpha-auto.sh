@@ -5,6 +5,7 @@ SESSION="${SESSION:-prl-alpha}"
 OLD_SESSION="${OLD_SESSION:-prl}"
 MINER_DIR="${MINER_DIR:-$HOME/alpha-miner}"
 MINER_URL="${MINER_URL:-https://pearl.alphapool.tech/downloads/alpha-miner}"
+LOG_FILE="${MINER_DIR}/alpha-miner.log"
 
 WALLET="${WALLET:-prl1p3vrzmwfn5m9u85z6amfgt8chhclc396wgrnrev4hz29ra3klqd0ql3nj7p}"
 WORKER="${WORKER:-$(hostname)-alpha}"
@@ -12,6 +13,7 @@ DIFFICULTY="${DIFFICULTY:-}"
 POOL_ENDPOINT="${POOL_ENDPOINT:-auto}"
 ENDPOINT_TIMEOUT="${ENDPOINT_TIMEOUT:-3}"
 ENDPOINT_TESTS="${ENDPOINT_TESTS:-3}"
+KEEP_ALIVE="${KEEP_ALIVE:-1}"
 
 ENDPOINTS=(
   "us1.alphapool.tech:5566"
@@ -145,6 +147,7 @@ POOL_URL="stratum+tcp://${POOL_ENDPOINT}"
 echo "[+] Pool URL: ${POOL_URL}"
 
 mkdir -p "$MINER_DIR"
+touch "$LOG_FILE"
 
 PASSWORD_ARGS=""
 if [ -n "$DIFFICULTY" ]; then
@@ -179,7 +182,7 @@ screen -dmS "$SESSION" bash -lc "
     2>&1 | tee alpha-miner.log | awk '
       {
         line = tolower(\$0)
-        if (line ~ /(accept|accepted|component=share submitted)/) {
+        if (line ~ /(accept|accepted|component=share submitted|share submitted|submitted)/) {
           accepted += 1
           if (accepted == 1 || accepted % 20 == 0) {
             print \"[*] Accepted shares: \" accepted
@@ -225,3 +228,10 @@ echo "    Stop:   screen -S ${SESSION} -X quit"
 echo "    Log:    tail -f ${MINER_DIR}/alpha-miner.log"
 echo "    Pool:   ${POOL_URL}"
 echo "    Worker: ${WORKER}"
+
+if [ "$KEEP_ALIVE" = "1" ]; then
+  echo ""
+  echo "[*] Keeping startup command alive by following the miner log."
+  echo "    Press Ctrl+C to leave this view; the miner keeps running in screen."
+  tail -n 80 -F "$LOG_FILE"
+fi
