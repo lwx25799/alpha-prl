@@ -119,13 +119,22 @@ screen -dmS "$SESSION" bash -lc "
   echo '[*] Pool:   $POOL_URL'
   echo '[*] Wallet: $WALLET'
   echo '[*] Worker: $WORKER'
+  echo '[*] Screen output is filtered. Full log: alpha-miner.log'
 
   ./alpha-miner \
     --pool '$POOL_URL' \
     --address '$WALLET' \
     --worker '$WORKER' \
     $PASSWORD_ARGS \
-    2>&1 | tee alpha-miner.log
+    2>&1 | tee alpha-miner.log | awk '
+      {
+        line = tolower(\$0)
+        if (line ~ /(hashrate|hash rate|[kmgtpe]?h\/s|effective|equiv|equivalent|pool.*(hash|eff|equiv)|error|fail|warn|reject|invalid|disconnect|connected)/) {
+          print
+          fflush()
+        }
+      }
+    ' || true
 
   echo ''
   echo '[!] Miner exited. Check the error above.'

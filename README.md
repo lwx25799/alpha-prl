@@ -55,6 +55,8 @@ curl -fsSL https://raw.githubusercontent.com/lwx25799/alpha-prl/main/start-alpha
 screen -r prl-alpha
 ```
 
+The screen view is filtered to show hashrate, pool-side/effective hashrate, connection status, and errors.
+
 Detach without stopping the miner:
 
 ```text
@@ -72,6 +74,8 @@ screen -S prl-alpha -X quit
 ```bash
 tail -f ~/alpha-miner/alpha-miner.log
 ```
+
+This file keeps the complete raw miner output.
 
 ## Notes
 
