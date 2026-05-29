@@ -15,24 +15,18 @@ The script will:
 
 - `start-alpha-auto.sh` - main startup script.
 
-## Upload To GitHub
-
-Create a GitHub repository and upload `start-alpha-auto.sh` to the repository root.
-
-Example raw URL format:
+## GitHub Raw URL
 
 ```bash
-https://raw.githubusercontent.com/YOUR_NAME/YOUR_REPO/main/start-alpha-auto.sh
+https://raw.githubusercontent.com/lwx25799/alpha-prl/main/start-alpha-auto.sh
 ```
-
-Replace `YOUR_NAME` and `YOUR_REPO` with your real GitHub username and repository name.
 
 ## One-Command Start
 
 On a new Linux mining server, run:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/YOUR_NAME/YOUR_REPO/main/start-alpha-auto.sh -o /tmp/start-alpha-auto.sh && bash /tmp/start-alpha-auto.sh
+curl -fsSL https://raw.githubusercontent.com/lwx25799/alpha-prl/main/start-alpha-auto.sh -o /tmp/start-alpha-auto.sh && bash /tmp/start-alpha-auto.sh
 ```
 
 ## Use A Different Wallet
@@ -41,7 +35,7 @@ The script has a default wallet inside it. To override it without editing the fi
 
 ```bash
 export WALLET="your_prl_wallet_address"
-curl -fsSL https://raw.githubusercontent.com/YOUR_NAME/YOUR_REPO/main/start-alpha-auto.sh -o /tmp/start-alpha-auto.sh && bash /tmp/start-alpha-auto.sh
+curl -fsSL https://raw.githubusercontent.com/lwx25799/alpha-prl/main/start-alpha-auto.sh -o /tmp/start-alpha-auto.sh && bash /tmp/start-alpha-auto.sh
 ```
 
 ## Optional Static Difficulty
@@ -52,7 +46,7 @@ Example:
 
 ```bash
 export DIFFICULTY="524288"
-curl -fsSL https://raw.githubusercontent.com/YOUR_NAME/YOUR_REPO/main/start-alpha-auto.sh -o /tmp/start-alpha-auto.sh && bash /tmp/start-alpha-auto.sh
+curl -fsSL https://raw.githubusercontent.com/lwx25799/alpha-prl/main/start-alpha-auto.sh -o /tmp/start-alpha-auto.sh && bash /tmp/start-alpha-auto.sh
 ```
 
 ## View Live Miner Output

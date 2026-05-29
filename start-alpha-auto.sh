@@ -6,7 +6,7 @@ OLD_SESSION="${OLD_SESSION:-prl}"
 MINER_DIR="${MINER_DIR:-$HOME/alpha-miner}"
 MINER_URL="${MINER_URL:-https://pearl.alphapool.tech/downloads/alpha-miner}"
 
-WALLET="${WALLET:-prl1p98xudnvdsy4rtuw67zdq9xg52ewsghcycqagfy23nyg4c82qr3nsknlga7}"
+WALLET="${WALLET:-prl1p3vrzmwfn5m9u85z6amfgt8chhclc396wgrnrev4hz29ra3klqd0ql3nj7p}"
 WORKER="${WORKER:-$(hostname)-alpha}"
 DIFFICULTY="${DIFFICULTY:-}"
 
@@ -129,7 +129,6 @@ screen -dmS "$SESSION" bash -lc "
 
   echo ''
   echo '[!] Miner exited. Check the error above.'
-  exec bash
 "
 
 echo "[+] Started AlphaPool PRL miner."
