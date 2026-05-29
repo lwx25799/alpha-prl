@@ -140,7 +140,7 @@ screen -dmS "$SESSION" bash -lc "
     2>&1 | tee pearl-miner.log | awk '
       {
         line = tolower(\$0)
-        if (line ~ /(accept|accepted)/) {
+        if (line ~ /(accept|accepted|component=share submitted|share submitted|submitted)/) {
           accepted += 1
           if (accepted == 1 || accepted % 20 == 0) {
             print \"[*] Accepted shares: \" accepted
