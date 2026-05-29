@@ -9,7 +9,8 @@ The scripts will:
 - Download the latest miner before switching pools.
 - Stop the old pool `screen` session only after the new miner is downloaded.
 - Run the miner in a detached `screen` session so it keeps running after SSH disconnects.
-- Optionally keep the startup command alive by following a filtered miner summary.
+- Show a filtered miner summary in `screen` while keeping the full raw miner log on disk.
+- Optionally keep the startup command alive by following the same filtered summary.
 - Prevent duplicate miner sessions for the same pool.
 
 ## Files
@@ -143,7 +144,7 @@ AlphaPool:
 screen -r prl-alpha
 ```
 
-AlphaPool screen output is raw miner output. Full raw output is also written to `~/alpha-miner/alpha-miner.log`.
+AlphaPool screen output is filtered to show each GPU hashrate, total hashrate, and errors only. Full raw output is still written to `~/alpha-miner/alpha-miner.log`.
 
 One-shot AlphaPool summary. This filters the last log lines once and exits; it does not keep following the miner:
 
@@ -157,7 +158,7 @@ Pearlhash:
 screen -r prl
 ```
 
-Pearlhash screen output is also filtered. Full raw output is written to `~/prl-miner/pearl-miner.log`.
+Pearlhash screen output is also filtered to show its native `Hashrate GPU #N = ...` and `Hashrate Total = ...` lines plus errors only. Full raw output is written to `~/prl-miner/pearl-miner.log`.
 
 Detach without stopping the miner:
 

@@ -76,15 +76,8 @@ filter_pearl_log() {
   awk '
     {
       line = tolower($0)
-      if (line ~ /(accept|accepted|component=share submitted|share submitted|submitted)/) {
-        accepted += 1
-        if (accepted == 1 || accepted % 20 == 0) {
-          print "[*] Accepted shares: " accepted
-          fflush()
-        }
-      } else if (line ~ /(hashrate|hash rate|[kmgtpe]?h\/s)/) {
-        gsub(/^[0-9TZ:.-]+[ ]+/, "", $0)
-        print "[*] " $0
+      if (line ~ /^hashrate gpu #[0-9]+[ ]*=/ || line ~ /^hashrate total[ ]*=/) {
+        print
         fflush()
       } else if (line ~ /(error|fail|warn|reject|rejected|stale|invalid|disconnect)/) {
         print

@@ -61,28 +61,48 @@ now_ms() {
 
 filter_alpha_log() {
   awk '
+    function add_gpu(g) {
+      if (!(g in seen)) {
+        seen[g] = 1
+        order[++gpu_count] = g
+      }
+    }
+
+    function print_hashrate(    i, g, total, equiv_total, parts) {
+      total = 0
+      equiv_total = 0
+      parts = ""
+
+      for (i = 1; i <= gpu_count; i++) {
+        g = order[i]
+        total += gpu_hash[g]
+        equiv_total += gpu_equiv[g]
+        parts = parts sprintf(" gpu%s=%.2f TH/s", g, gpu_hash[g])
+      }
+
+      if (equiv_total > 0) {
+        printf "[*] Hashrate: total=%.2f TH/s pool_equiv=%.2f TH/s |%s\n", total, equiv_total, parts
+      } else {
+        printf "[*] Hashrate: total=%.2f TH/s |%s\n", total, parts
+      }
+      fflush()
+    }
+
     {
       line = tolower($0)
-      if (line ~ /(accept|accepted|component=share submitted|share submitted|submitted)/) {
-        accepted += 1
-        if (accepted == 1 || accepted % 20 == 0) {
-          print "[*] Accepted shares: " accepted
-          fflush()
-        }
-      } else if (line ~ /component=pool connected/) {
-        host = port = ""
-        if (match($0, /host=[^ ]+/)) host = substr($0, RSTART + 5, RLENGTH - 5)
-        if (match($0, /port=[0-9]+/)) port = substr($0, RSTART + 5, RLENGTH - 5)
-        print "[*] Pool connected: " host ":" port
-        fflush()
-      } else if (line ~ /component=miner status/) {
-        hash = equiv = attempts = hits = ""
-        if (match($0, /attempts=[0-9]+/)) attempts = substr($0, RSTART + 9, RLENGTH - 9)
-        if (match($0, /hits=[0-9]+/)) hits = substr($0, RSTART + 5, RLENGTH - 5)
+      if (line ~ /component=miner status/) {
+        gpu = hash = equiv = ""
+        if (match($0, /gpu=[0-9]+/)) gpu = substr($0, RSTART + 4, RLENGTH - 4)
         if (match($0, /hashrate_th_s=[0-9.]+/)) hash = substr($0, RSTART + 14, RLENGTH - 14)
         if (match($0, /share_equiv_th_s=[0-9.]+/)) equiv = substr($0, RSTART + 17, RLENGTH - 17)
-        printf "[*] Hashrate: local=%s TH/s pool_equiv=%s TH/s attempts=%s hits=%s\n", hash, equiv, attempts, hits
-        fflush()
+
+        if (hash != "") {
+          if (gpu == "") gpu = "?"
+          add_gpu(gpu)
+          gpu_hash[gpu] = hash + 0
+          gpu_equiv[gpu] = equiv + 0
+          print_hashrate()
+        }
       } else if (line ~ /(error|fail|warn|reject|rejected|stale|invalid|disconnect)/) {
         print
         fflush()
@@ -217,6 +237,8 @@ fi
 screen -dmS "$SESSION" bash -lc "
   set -e
 
+  $(declare -f filter_alpha_log)
+
   cd '$MINER_DIR'
 
   echo '[*] Starting PRL miner on AlphaPool...'
@@ -224,7 +246,7 @@ screen -dmS "$SESSION" bash -lc "
   echo '[*] Wallet: $WALLET'
   echo '[*] Worker: $WORKER'
   echo '[*] Status interval: ${STATUS_INTERVAL}s'
-  echo '[*] Screen output is raw miner output. Summary: VIEW=summary bash /tmp/start-alpha-auto.sh'
+  echo '[*] Screen output is filtered. Full raw log: alpha-miner.log'
 
   ./alpha-miner \
     --pool '$POOL_URL' \
@@ -233,7 +255,7 @@ screen -dmS "$SESSION" bash -lc "
     --status-interval '$STATUS_INTERVAL' \
     $DEVICE_ARGS \
     $PASSWORD_ARGS \
-    2>&1 | tee alpha-miner.log || true
+    2>&1 | tee alpha-miner.log | filter_alpha_log || true
 
   echo ''
   echo '[!] Miner exited. Check the error above.'
