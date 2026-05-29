@@ -14,6 +14,7 @@ POOL_ENDPOINT="${POOL_ENDPOINT:-auto}"
 ENDPOINT_TIMEOUT="${ENDPOINT_TIMEOUT:-3}"
 ENDPOINT_TESTS="${ENDPOINT_TESTS:-3}"
 KEEP_ALIVE="${KEEP_ALIVE:-0}"
+VIEW="${VIEW:-}"
 
 ENDPOINTS=(
   "us1.alphapool.tech:5566"
@@ -55,6 +56,48 @@ now_ms() {
 
   echo "$(date +%s)000"
 }
+
+filter_alpha_log() {
+  awk '
+    {
+      line = tolower($0)
+      if (line ~ /(accept|accepted|component=share submitted|share submitted|submitted)/) {
+        accepted += 1
+        if (accepted == 1 || accepted % 20 == 0) {
+          print "[*] Accepted shares: " accepted
+          fflush()
+        }
+      } else if (line ~ /component=pool connected/) {
+        host = port = ""
+        if (match($0, /host=[^ ]+/)) host = substr($0, RSTART + 5, RLENGTH - 5)
+        if (match($0, /port=[0-9]+/)) port = substr($0, RSTART + 5, RLENGTH - 5)
+        print "[*] Pool connected: " host ":" port
+        fflush()
+      } else if (line ~ /component=miner status/) {
+        hash = equiv = attempts = hits = ""
+        if (match($0, /attempts=[0-9]+/)) attempts = substr($0, RSTART + 9, RLENGTH - 9)
+        if (match($0, /hits=[0-9]+/)) hits = substr($0, RSTART + 5, RLENGTH - 5)
+        if (match($0, /hashrate_th_s=[0-9.]+/)) hash = substr($0, RSTART + 14, RLENGTH - 14)
+        if (match($0, /share_equiv_th_s=[0-9.]+/)) equiv = substr($0, RSTART + 17, RLENGTH - 17)
+        printf "[*] Hashrate: local=%s TH/s pool_equiv=%s TH/s attempts=%s hits=%s\n", hash, equiv, attempts, hits
+        fflush()
+      } else if (line ~ /(error|fail|warn|reject|rejected|stale|invalid|disconnect)/) {
+        print
+        fflush()
+      }
+    }
+  '
+}
+
+if [ "$VIEW" = "summary" ]; then
+  if [ ! -f "$LOG_FILE" ]; then
+    echo "[!] AlphaPool log not found: ${LOG_FILE}"
+    exit 1
+  fi
+
+  tail -n "${SUMMARY_LINES:-200}" "$LOG_FILE" | filter_alpha_log
+  exit 0
+fi
 
 if ! command -v screen >/dev/null 2>&1 || ! command -v curl >/dev/null 2>&1; then
   echo "[*] Installing dependencies..."
@@ -108,38 +151,6 @@ test_endpoint_precise() {
   sorted="$(printf "%s\n" "${samples[@]}" | sort -n)"
   median="$(printf "%s\n" "$sorted" | sed -n "$(((${#samples[@]} + 1) / 2))p")"
   printf "%s %s" "$median" "$(printf "%s" "$sorted" | tr '\n' ' ')"
-}
-
-filter_alpha_log() {
-  awk '
-    {
-      line = tolower($0)
-      if (line ~ /(accept|accepted|component=share submitted|share submitted|submitted)/) {
-        accepted += 1
-        if (accepted == 1 || accepted % 20 == 0) {
-          print "[*] Accepted shares: " accepted
-          fflush()
-        }
-      } else if (line ~ /component=pool connected/) {
-        host = port = ""
-        if (match($0, /host=[^ ]+/)) host = substr($0, RSTART + 5, RLENGTH - 5)
-        if (match($0, /port=[0-9]+/)) port = substr($0, RSTART + 5, RLENGTH - 5)
-        print "[*] Pool connected: " host ":" port
-        fflush()
-      } else if (line ~ /component=miner status/) {
-        hash = equiv = attempts = hits = ""
-        if (match($0, /attempts=[0-9]+/)) attempts = substr($0, RSTART + 9, RLENGTH - 9)
-        if (match($0, /hits=[0-9]+/)) hits = substr($0, RSTART + 5, RLENGTH - 5)
-        if (match($0, /hashrate_th_s=[0-9.]+/)) hash = substr($0, RSTART + 14, RLENGTH - 14)
-        if (match($0, /share_equiv_th_s=[0-9.]+/)) equiv = substr($0, RSTART + 17, RLENGTH - 17)
-        printf "[*] Hashrate: local=%s TH/s pool_equiv=%s TH/s attempts=%s hits=%s\n", hash, equiv, attempts, hits
-        fflush()
-      } else if (line ~ /(error|fail|warn|reject|rejected|stale|invalid|disconnect)/) {
-        print
-        fflush()
-      }
-    }
-  '
 }
 
 if [ "$POOL_ENDPOINT" = "auto" ]; then
@@ -199,22 +210,20 @@ fi
 screen -dmS "$SESSION" bash -lc "
   set -e
 
-  $(declare -f filter_alpha_log)
-
   cd '$MINER_DIR'
 
   echo '[*] Starting PRL miner on AlphaPool...'
   echo '[*] Pool:   $POOL_URL'
   echo '[*] Wallet: $WALLET'
   echo '[*] Worker: $WORKER'
-  echo '[*] Screen output is filtered. Full log: alpha-miner.log'
+  echo '[*] Screen output is raw miner output. Summary: VIEW=summary bash /tmp/start-alpha-auto.sh'
 
   ./alpha-miner \
     --pool '$POOL_URL' \
     --address '$WALLET' \
     --worker '$WORKER' \
     $PASSWORD_ARGS \
-    2>&1 | tee alpha-miner.log | filter_alpha_log || true
+    2>&1 | tee alpha-miner.log || true
 
   echo ''
   echo '[!] Miner exited. Check the error above.'
@@ -224,7 +233,7 @@ sleep 3
 if ! screen -list | grep -q "[.]${SESSION}[[:space:]]"; then
   echo "[!] AlphaPool miner failed to stay running."
   echo "    Old session was already stopped before launch."
-  echo "    Log: tail -f ${MINER_DIR}/alpha-miner.log"
+  echo "    Log: tail -n 80 ${MINER_DIR}/alpha-miner.log"
   exit 1
 fi
 
@@ -232,7 +241,8 @@ echo "[+] Started AlphaPool PRL miner."
 echo "    Screen: screen -r ${SESSION}"
 echo "    Detach: Ctrl+A then D"
 echo "    Stop:   screen -S ${SESSION} -X quit"
-echo "    Log:    tail -f ${MINER_DIR}/alpha-miner.log"
+echo "    Log:    tail -n 80 ${MINER_DIR}/alpha-miner.log"
+echo "    Summary: VIEW=summary bash /tmp/start-alpha-auto.sh"
 echo "    Pool:   ${POOL_URL}"
 echo "    Worker: ${WORKER}"
 

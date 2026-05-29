@@ -114,7 +114,13 @@ AlphaPool:
 screen -r prl-alpha
 ```
 
-AlphaPool screen output is a short summary view. Full raw output is written to `~/alpha-miner/alpha-miner.log`.
+AlphaPool screen output is raw miner output. Full raw output is also written to `~/alpha-miner/alpha-miner.log`.
+
+One-shot AlphaPool summary:
+
+```bash
+VIEW=summary bash /tmp/start-alpha-auto.sh
+```
 
 Pearlhash:
 
@@ -167,13 +173,19 @@ screen -S prl -X quit
 AlphaPool:
 
 ```bash
-tail -f ~/alpha-miner/alpha-miner.log
+tail -n 80 ~/alpha-miner/alpha-miner.log
+```
+
+If you need a live raw log view that exits automatically:
+
+```bash
+timeout 10s tail -f ~/alpha-miner/alpha-miner.log
 ```
 
 Pearlhash:
 
 ```bash
-tail -f ~/prl-miner/pearl-miner.log
+tail -n 80 ~/prl-miner/pearl-miner.log
 ```
 
 ## Notes
