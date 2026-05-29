@@ -10,6 +10,8 @@ LOG_FILE="${MINER_DIR}/alpha-miner.log"
 WALLET="${WALLET:-prl1p3vrzmwfn5m9u85z6amfgt8chhclc396wgrnrev4hz29ra3klqd0ql3nj7p}"
 WORKER="${WORKER:-$(hostname)-alpha}"
 DIFFICULTY="${DIFFICULTY:-}"
+STATUS_INTERVAL="${STATUS_INTERVAL:-60}"
+DEVICES="${DEVICES:-}"
 POOL_ENDPOINT="${POOL_ENDPOINT:-auto}"
 ENDPOINT_TIMEOUT="${ENDPOINT_TIMEOUT:-3}"
 ENDPOINT_TESTS="${ENDPOINT_TESTS:-3}"
@@ -197,6 +199,11 @@ if [ -n "$DIFFICULTY" ]; then
   PASSWORD_ARGS="--password 'x;d=${DIFFICULTY}'"
 fi
 
+DEVICE_ARGS=""
+if [ -n "$DEVICES" ]; then
+  DEVICE_ARGS="--devices '${DEVICES}'"
+fi
+
 echo "[*] Downloading latest alpha-miner..."
 curl -fL --retry 3 "$MINER_URL" -o "${MINER_DIR}/alpha-miner"
 chmod +x "${MINER_DIR}/alpha-miner"
@@ -216,12 +223,15 @@ screen -dmS "$SESSION" bash -lc "
   echo '[*] Pool:   $POOL_URL'
   echo '[*] Wallet: $WALLET'
   echo '[*] Worker: $WORKER'
+  echo '[*] Status interval: ${STATUS_INTERVAL}s'
   echo '[*] Screen output is raw miner output. Summary: VIEW=summary bash /tmp/start-alpha-auto.sh'
 
   ./alpha-miner \
     --pool '$POOL_URL' \
     --address '$WALLET' \
     --worker '$WORKER' \
+    --status-interval '$STATUS_INTERVAL' \
+    $DEVICE_ARGS \
     $PASSWORD_ARGS \
     2>&1 | tee alpha-miner.log || true
 
@@ -245,6 +255,7 @@ echo "    Log:    tail -n 80 ${MINER_DIR}/alpha-miner.log"
 echo "    Summary: VIEW=summary bash /tmp/start-alpha-auto.sh"
 echo "    Pool:   ${POOL_URL}"
 echo "    Worker: ${WORKER}"
+echo "    Status: every ${STATUS_INTERVAL}s"
 
 if [ "$KEEP_ALIVE" = "1" ]; then
   echo ""

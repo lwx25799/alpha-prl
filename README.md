@@ -9,7 +9,7 @@ The scripts will:
 - Download the latest miner before switching pools.
 - Stop the old pool `screen` session only after the new miner is downloaded.
 - Run the miner in a detached `screen` session so it keeps running after SSH disconnects.
-- Optionally keep the startup command alive by following the same filtered miner summary shown in `screen`.
+- Optionally keep the startup command alive by following a filtered miner summary.
 - Prevent duplicate miner sessions for the same pool.
 
 ## Files
@@ -73,6 +73,35 @@ export DIFFICULTY="524288"
 curl -fsSL https://raw.githubusercontent.com/lwx25799/alpha-prl/main/start-alpha-auto.sh -o /tmp/start-alpha-auto.sh && bash /tmp/start-alpha-auto.sh
 ```
 
+Official AlphaPool starting points:
+
+| Card class | `DIFFICULTY` |
+| --- | ---: |
+| V100 / CMP 100-210 | `4096` |
+| RTX 2070 / 2080 | `16384` |
+| RTX 3060 Ti / 3070 | `131072` |
+| RTX 3080 / 3090 / CMP 70HX/90HX | `262144` |
+| A100 / data-center Ampere | `131072` |
+| RTX 4070 / 4080 | `262144` |
+| RTX 4090 / 5080 | `524288` |
+| RTX 5090 / H100 / H200 / B100 | `1048576` |
+
+Static difficulty is useful when VarDiff climbs too slowly on high-hashrate or mixed-card rigs. A wrong value only makes pool-side stats bumpier; it does not cap GPU power or lose valid shares.
+
+AlphaPool status lines are printed every 60 seconds by default. To change that:
+
+```bash
+export STATUS_INTERVAL="30"
+curl -fsSL https://raw.githubusercontent.com/lwx25799/alpha-prl/main/start-alpha-auto.sh -o /tmp/start-alpha-auto.sh && bash /tmp/start-alpha-auto.sh
+```
+
+Optional GPU selection:
+
+```bash
+export DEVICES="0,1,2"
+curl -fsSL https://raw.githubusercontent.com/lwx25799/alpha-prl/main/start-alpha-auto.sh -o /tmp/start-alpha-auto.sh && bash /tmp/start-alpha-auto.sh
+```
+
 Optional endpoint selection:
 
 ```bash
@@ -116,7 +145,7 @@ screen -r prl-alpha
 
 AlphaPool screen output is raw miner output. Full raw output is also written to `~/alpha-miner/alpha-miner.log`.
 
-One-shot AlphaPool summary:
+One-shot AlphaPool summary. This filters the last log lines once and exits; it does not keep following the miner:
 
 ```bash
 VIEW=summary bash /tmp/start-alpha-auto.sh
@@ -138,7 +167,7 @@ Ctrl+A then D
 
 By default, the script exits after starting the background `screen` session. The miner keeps running in `screen`.
 
-If your cloud order/startup platform requires the startup command to stay alive, enable the foreground filtered summary explicitly:
+If your cloud order/startup platform requires the startup command to stay alive, enable the foreground filtered summary explicitly. With AlphaPool, the miner writes status lines every `STATUS_INTERVAL` seconds, so the filtered summary normally prints hashrate once per minute.
 
 ```bash
 export KEEP_ALIVE=1
