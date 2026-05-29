@@ -146,7 +146,11 @@ screen -dmS "$SESSION" bash -lc "
             print \"[*] Accepted shares: \" accepted
             fflush()
           }
-        } else if (line ~ /(hashrate|hash rate|[kmgtpe]?h\/s|share|job|block|error|fail|warn|reject|rejected|stale|invalid|disconnect|connected|difficulty)/) {
+        } else if (line ~ /(hashrate|hash rate|[kmgtpe]?h\/s)/) {
+          gsub(/^[0-9TZ:.-]+[ ]+/, \"\", \$0)
+          print \"[*] \" \$0
+          fflush()
+        } else if (line ~ /(error|fail|warn|reject|rejected|stale|invalid|disconnect)/) {
           print
           fflush()
         }

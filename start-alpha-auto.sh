@@ -185,7 +185,21 @@ screen -dmS "$SESSION" bash -lc "
             print \"[*] Accepted shares: \" accepted
             fflush()
           }
-        } else if (line ~ /(hashrate|hash rate|[kmgtpe]?h\/s|effective|equiv|equivalent|pool.*(hash|eff|equiv)|error|fail|warn|reject|rejected|stale|invalid|disconnect|connected|difficulty)/) {
+        } else if (line ~ /component=pool connected/) {
+          host = port = \"\"
+          if (match(\$0, /host=[^ ]+/)) host = substr(\$0, RSTART + 5, RLENGTH - 5)
+          if (match(\$0, /port=[0-9]+/)) port = substr(\$0, RSTART + 5, RLENGTH - 5)
+          print \"[*] Pool connected: \" host \":\" port
+          fflush()
+        } else if (line ~ /component=miner status/) {
+          hash = equiv = attempts = hits = \"\"
+          if (match(\$0, /attempts=[0-9]+/)) attempts = substr(\$0, RSTART + 9, RLENGTH - 9)
+          if (match(\$0, /hits=[0-9]+/)) hits = substr(\$0, RSTART + 5, RLENGTH - 5)
+          if (match(\$0, /hashrate_th_s=[0-9.]+/)) hash = substr(\$0, RSTART + 14, RLENGTH - 14)
+          if (match(\$0, /share_equiv_th_s=[0-9.]+/)) equiv = substr(\$0, RSTART + 17, RLENGTH - 17)
+          printf \"[*] Hashrate: local=%s TH/s pool_equiv=%s TH/s attempts=%s hits=%s\\n\", hash, equiv, attempts, hits
+          fflush()
+        } else if (line ~ /(error|fail|warn|reject|rejected|stale|invalid|disconnect)/) {
           print
           fflush()
         }

@@ -113,11 +113,15 @@ AlphaPool:
 screen -r prl-alpha
 ```
 
+AlphaPool screen output is a short summary view. Full raw output is written to `~/alpha-miner/alpha-miner.log`.
+
 Pearlhash:
 
 ```bash
 screen -r prl
 ```
+
+Pearlhash screen output is also filtered. Full raw output is written to `~/prl-miner/pearl-miner.log`.
 
 Detach without stopping the miner:
 
