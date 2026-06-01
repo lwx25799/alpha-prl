@@ -19,10 +19,12 @@ POOL_ENDPOINT="${POOL_ENDPOINT:-auto}"
 ENDPOINT_TIMEOUT="${ENDPOINT_TIMEOUT:-3}"
 ENDPOINT_TESTS="${ENDPOINT_TESTS:-1}"
 KEEP_ALIVE="${KEEP_ALIVE:-0}"
-STARTUP_WAIT="${STARTUP_WAIT:-15}"
+STARTUP_WAIT="${STARTUP_WAIT:-30}"
 LAUNCH_MODE="${LAUNCH_MODE:-auto}"
 SKIP_DOWNLOAD="${SKIP_DOWNLOAD:-0}"
 DEFAULT_MINER_DIR="${HOME}/prl-miner"
+STARTUP_LOG_LINES=0
+STARTUP_HEALTH_REASON=""
 
 ENDPOINTS=(
   "84.32.220.219:9000"
@@ -628,6 +630,36 @@ is_current_running() {
   is_screen_session_running || is_pid_running
 }
 
+record_startup_log_position() {
+  local lines
+
+  if [ -f "$LOG_FILE" ]; then
+    lines="$(wc -l < "$LOG_FILE" 2>/dev/null | tr -d '[:space:]')" || lines=0
+    case "$lines" in
+      ""|*[!0-9]*)
+        lines=0
+        ;;
+    esac
+    STARTUP_LOG_LINES="$lines"
+  else
+    STARTUP_LOG_LINES=0
+  fi
+}
+
+startup_hashrate_seen() {
+  [ -f "$LOG_FILE" ] || return 1
+
+  awk -v start="$STARTUP_LOG_LINES" '
+    NR > start {
+      line = tolower($0)
+      if (line ~ /^hashrate total[ ]*=/) {
+        found = 1
+      }
+    }
+    END { exit found ? 0 : 1 }
+  ' "$LOG_FILE"
+}
+
 wait_for_pid_exit() {
   local pid="$1"
   local i
@@ -983,15 +1015,36 @@ miner_is_ready() {
 
 wait_for_miner_ready() {
   local i
+  local saw_running=0
+
+  STARTUP_HEALTH_REASON=""
 
   for ((i = 0; i < STARTUP_WAIT; i++)); do
     if miner_is_ready; then
-      return 0
+      saw_running=1
+    elif [ "$saw_running" = "1" ]; then
+      STARTUP_HEALTH_REASON="miner exited during startup health check"
+      return 1
     fi
     sleep 1
   done
 
-  return 1
+  if ! miner_is_ready; then
+    if [ "$saw_running" = "1" ]; then
+      STARTUP_HEALTH_REASON="miner exited before startup health check completed"
+    else
+      STARTUP_HEALTH_REASON="miner never became visible to the launcher"
+    fi
+    return 1
+  fi
+
+  if startup_hashrate_seen; then
+    STARTUP_HEALTH_REASON="hashrate log observed"
+  else
+    STARTUP_HEALTH_REASON="still running after ${STARTUP_WAIT}s"
+  fi
+
+  return 0
 }
 
 stop_old_session
@@ -1012,17 +1065,21 @@ case "$LAUNCH_MODE" in
     ;;
 esac
 
+record_startup_log_position
 launch_miner "$LAUNCH_MODE"
+echo "[*] Waiting ${STARTUP_WAIT}s for startup health check..."
 
 if ! wait_for_miner_ready; then
-  echo "[!] Pearlhash miner failed to stay running within ${STARTUP_WAIT}s."
+  echo "[!] Pearlhash miner failed startup health check within ${STARTUP_WAIT}s."
+  [ -n "$STARTUP_HEALTH_REASON" ] && echo "    Reason: ${STARTUP_HEALTH_REASON}"
   echo "    Old session was already stopped before launch."
-  echo "    Try: export STARTUP_WAIT=30"
+  echo "    Try: export STARTUP_WAIT=45"
   echo "    Log: tail -n 80 ${LOG_FILE}"
   exit 1
 fi
 
 echo "[+] Started Pearlhash PRL miner."
+echo "    Health: ${STARTUP_HEALTH_REASON}"
 if [ "$LAUNCH_MODE" = "screen" ]; then
   echo "    Screen: screen -r ${SESSION}"
   echo "    Detach: Ctrl+A then D"

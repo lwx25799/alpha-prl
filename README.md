@@ -217,10 +217,10 @@ Official AlphaPool starting points:
 
 Static difficulty is useful when VarDiff climbs too slowly on high-hashrate or mixed-card rigs. A wrong value only makes pool-side stats bumpier; it does not cap GPU power or lose valid shares.
 
-AlphaPool status lines are printed every 60 seconds by default. To change that:
+AlphaPool status lines are printed every 5 seconds by default. To change that:
 
 ```bash
-export STATUS_INTERVAL="30"
+export STATUS_INTERVAL="10"
 curl -fsSL https://raw.githubusercontent.com/lwx25799/alpha-prl/main/start-alpha-auto.sh -o /tmp/start-alpha-auto.sh && bash /tmp/start-alpha-auto.sh
 ```
 
@@ -315,10 +315,10 @@ export LAUNCH_MODE="setsid"
 
 Valid values are `auto`, `screen`, `setsid`, `nohup`, and `background`.
 
-If the miner needs more time to initialize on slow hosts:
+If the miner needs more than the default 30 seconds to initialize on slow hosts:
 
 ```bash
-export STARTUP_WAIT=30
+export STARTUP_WAIT=45
 ```
 
 Use a custom writable directory when the default location is not suitable:
@@ -366,7 +366,7 @@ kill "$(cat ~/alpha-miner/prl-alpha.pid)"
 kill "$(cat ~/prl-miner/prl.pid)"
 ```
 
-If your cloud order/startup platform requires the startup command to stay alive, enable the foreground filtered summary explicitly. With AlphaPool, the miner writes status lines every `STATUS_INTERVAL` seconds, so the filtered summary normally prints hashrate once per minute.
+If your cloud order/startup platform requires the startup command to stay alive, enable the foreground filtered summary explicitly. With AlphaPool, the miner writes status lines every `STATUS_INTERVAL` seconds, so the filtered summary normally prints hashrate every 5 seconds by default.
 
 ```bash
 export KEEP_ALIVE=1
